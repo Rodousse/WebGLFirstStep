@@ -1,0 +1,500 @@
+<html>
+<head>
+  <script src="sylvester.js" type="text/javascript">
+  </script>
+  <script src="glUtils.js" type="text/javascript">
+</script>
+<script tye="text/javascript">
+function start() {
+
+
+  var canvas = document.getElementById("glcanvas");
+
+  initWebGL(canvas);      // Initialise le contexte WebGL
+
+  // Continue seulement si le WebGL est disponible et est en train de fonctionner
+
+  if (gl) {
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);                      // Met la couleur d'effacement au noir et complétement opaque
+    gl.clearDepth(1.0);
+    gl.enable(gl.DEPTH_TEST);                               // Active le test de profondeur
+    gl.depthFunc(gl.LEQUAL);                                // Les objets proches cachent les objets lointains
+    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);      // Efface les couleurs et le buffer de profondeur.
+    initShaders();
+
+    // Here's where we call the routine that builds all the objects
+    // we'll be drawing.
+
+    initBuffers();
+    initTextures();
+
+    // Set up to draw the scene periodically.
+
+    setInterval(drawScene, 100/60);
+  }
+}
+
+var horizAspect = 1024.0/720.0;
+var shaderProgram;
+var squareRotation = 0.0;
+var lastSquareUpdateTime;
+var squareXOffset = 0.0;
+var squareYOffset = 0.0;
+var squareZOffset = 0.0;
+var xIncValue = 0.2;
+var yIncValue = -0.4;
+var zIncValue = 0.3;
+var mvMatrixStack = [];
+function initWebGL(canvas) {
+  // Initialise la variable gloable gl à null
+  gl = null;
+
+  try {
+    // Essaye de récupérer le contexte standard. En cas d'échec, il teste l'appel experimental
+    gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+  }
+  catch(e) {}
+
+   // Si le contexte GL n'est pas récupéré, on l'indique à l'utilisateur.
+    if (!gl) {
+      alert("Impossible d'initialiser le WebGL. Il est possible que votre navigateur ne supporte pas cette fonctionnalité.");
+  }
+}
+
+function initBuffers() {
+  cubeVerticesBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVerticesBuffer);
+
+  var vertices = [
+    // Front face
+    -1.0, -1.0,  1.0,
+     1.0, -1.0,  1.0,
+     1.0,  1.0,  1.0,
+    -1.0,  1.0,  1.0,
+
+    // Back face
+    -1.0, -1.0, -1.0,
+    -1.0,  1.0, -1.0,
+     1.0,  1.0, -1.0,
+     1.0, -1.0, -1.0,
+
+    // Top face
+    -1.0,  1.0, -1.0,
+    -1.0,  1.0,  1.0,
+     1.0,  1.0,  1.0,
+     1.0,  1.0, -1.0,
+
+    // Bottom face
+    -1.0, -1.0, -1.0,
+     1.0, -1.0, -1.0,
+     1.0, -1.0,  1.0,
+    -1.0, -1.0,  1.0,
+
+    // Right face
+     1.0, -1.0, -1.0,
+     1.0,  1.0, -1.0,
+     1.0,  1.0,  1.0,
+     1.0, -1.0,  1.0,
+
+    // Left face
+    -1.0, -1.0, -1.0,
+    -1.0, -1.0,  1.0,
+    -1.0,  1.0,  1.0,
+    -1.0,  1.0, -1.0
+  ];
+
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+  // var colors = [
+  //   [1.0,  1.0,  1.0,  1.0],    // Front face: white
+  //   [1.0,  0.0,  0.0,  1.0],    // Back face: red
+  //   [0.0,  1.0,  0.0,  1.0],    // Top face: green
+  //   [0.0,  0.0,  1.0,  1.0],    // Bottom face: blue
+  //   [1.0,  1.0,  0.0,  1.0],    // Right face: yellow
+  //   [1.0,  0.0,  1.0,  1.0]     // Left face: purple
+  // ];
+  // var generatedColors = [];
+  //
+  // for (j=0; j<6; j++) {
+  //   var c = colors[j];
+  //
+  //   for (var i=0; i<4; i++) {
+  //     generatedColors = generatedColors.concat(c);
+  //   }
+  // }
+  //
+  // cubeVerticesColorBuffer = gl.createBuffer();
+  // gl.bindBuffer(gl.ARRAY_BUFFER, cubeVerticesColorBuffer);
+  // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(generatedColors), gl.STATIC_DRAW);
+
+
+
+    cubeVerticesTextureCoordBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVerticesTextureCoordBuffer);
+
+  var textureCoordinates = [
+    // Front
+    0.0,  0.0,
+    1.0,  0.0,
+    1.0,  1.0,
+    0.0,  1.0,
+    // Back
+    0.0,  0.0,
+    1.0,  0.0,
+    1.0,  1.0,
+    0.0,  1.0,
+    // Top
+    0.0,  0.0,
+    1.0,  0.0,
+    1.0,  1.0,
+    0.0,  1.0,
+    // Bottom
+    0.0,  0.0,
+    1.0,  0.0,
+    1.0,  1.0,
+    0.0,  1.0,
+    // Right
+    0.0,  0.0,
+    1.0,  0.0,
+    1.0,  1.0,
+    0.0,  1.0,
+    // Left
+    0.0,  0.0,
+    1.0,  0.0,
+    1.0,  1.0,
+    0.0,  1.0
+  ];
+
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordinates),
+                gl.STATIC_DRAW);
+
+
+
+
+
+  cubeVerticesNormalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVerticesNormalBuffer);
+
+  var vertexNormals = [
+    // Front
+     0.0,  0.0,  1.0,
+     0.0,  0.0,  1.0,
+     0.0,  0.0,  1.0,
+     0.0,  0.0,  1.0,
+
+    // Back
+     0.0,  0.0, -1.0,
+     0.0,  0.0, -1.0,
+     0.0,  0.0, -1.0,
+     0.0,  0.0, -1.0,
+
+    // Top
+     0.0,  1.0,  0.0,
+     0.0,  1.0,  0.0,
+     0.0,  1.0,  0.0,
+     0.0,  1.0,  0.0,
+
+    // Bottom
+     0.0, -1.0,  0.0,
+     0.0, -1.0,  0.0,
+     0.0, -1.0,  0.0,
+     0.0, -1.0,  0.0,
+
+    // Right
+     1.0,  0.0,  0.0,
+     1.0,  0.0,  0.0,
+     1.0,  0.0,  0.0,
+     1.0,  0.0,  0.0,
+
+    // Left
+    -1.0,  0.0,  0.0,
+    -1.0,  0.0,  0.0,
+    -1.0,  0.0,  0.0,
+    -1.0,  0.0,  0.0
+  ];
+
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexNormals), gl.STATIC_DRAW);
+    // This array defines each face as two triangles, using the
+    // indices into the vertex array to specify each triangle's
+    // position.
+    cubeVerticesIndexBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVerticesIndexBuffer);
+    var cubeVertexIndices = [
+      0,  1,  2,      0,  2,  3,    // front
+      4,  5,  6,      4,  6,  7,    // back
+      8,  9,  10,     8,  10, 11,   // top
+      12, 13, 14,     12, 14, 15,   // bottom
+      16, 17, 18,     16, 18, 19,   // right
+      20, 21, 22,     20, 22, 23    // left
+    ]
+
+    // Now send the element array to GL
+
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,
+        new Uint16Array(cubeVertexIndices), gl.STATIC_DRAW);
+    // squareVerticesColorBuffer = gl.createBuffer();
+    // gl.bindBuffer(gl.ARRAY_BUFFER, squareVerticesColorBuffer);
+    // gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+
+}
+
+function initTextures() {
+  cubeTexture = gl.createTexture();
+  cubeImage = new Image();
+  cubeImage.onload = function() { handleTextureLoaded(cubeImage, cubeTexture); }
+  cubeImage.src = "lena256.png";
+}
+
+function handleTextureLoaded(image, texture) {
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.bindTexture(gl.TEXTURE_2D, null);
+}
+function drawScene() {
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  perspectiveMatrix = makePerspective(45, 640.0/480.0, 0.1, 100.0);
+
+  loadIdentity();
+  mvTranslate([-0.0, 0.0, -6.0]);
+  mvPushMatrix();
+  mvRotate(squareRotation, [1, 0, 1]);
+  mvTranslate([squareXOffset, squareYOffset, squareZOffset]);
+
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVerticesBuffer);
+  gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+  // setMatrixUniforms();
+  // gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVerticesTextureCoordBuffer);
+  gl.vertexAttribPointer(textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVerticesNormalBuffer);
+  gl.vertexAttribPointer(vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+
+  setMatrixUniforms();
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, cubeTexture);
+  gl.uniform1i(gl.getUniformLocation(shaderProgram, "uSampler"), 0);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVerticesIndexBuffer);
+  gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
+mvPopMatrix();
+  var currentTime = (new Date).getTime();
+  if (lastSquareUpdateTime) {
+  	var delta = currentTime - lastSquareUpdateTime;
+
+  	squareRotation += (30 * delta) / 1000.0;
+    // squareXOffset += xIncValue * ((30 * delta) / 1000.0);
+    //   squareYOffset += yIncValue * ((30 * delta) / 1000.0);
+    //   squareZOffset += zIncValue * ((30 * delta) / 1000.0);
+    //
+    //   if (Math.abs(squareYOffset) > 2.5) {
+    //     xIncValue = -xIncValue;
+    //     yIncValue = -yIncValue;
+    //     zIncValue = -zIncValue;
+    //   }
+  }
+
+  lastSquareUpdateTime = currentTime;
+
+
+}
+
+function initShaders() {
+  var fragmentShader = getShader(gl, "shader-fs");
+  var vertexShader = getShader(gl, "shader-vs");
+
+  // Créer le programme shader
+
+  shaderProgram = gl.createProgram();
+  gl.attachShader(shaderProgram, vertexShader);
+  gl.attachShader(shaderProgram, fragmentShader);
+  gl.linkProgram(shaderProgram);
+
+  // Faire une alerte si le chargement du shader échoue
+
+  if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+    alert("Impossible d'initialiser le shader.");
+  }
+
+  gl.useProgram(shaderProgram);
+
+  vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+  gl.enableVertexAttribArray(vertexPositionAttribute);
+  textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
+  gl.enableVertexAttribArray(textureCoordAttribute);
+  vertexNormalAttribute =  gl.getAttribLocation(shaderProgram, "aVertexNormal");
+  gl.enableVertexAttribArray(vertexNormalAttribute);
+}
+
+
+
+
+function getShader(gl, id) {
+    var shaderScript, theSource, currentChild, shader;
+
+    shaderScript = document.getElementById(id);
+
+    if (!shaderScript) {
+        return null;
+    }
+
+    theSource = "";
+    currentChild = shaderScript.firstChild;
+
+    while(currentChild) {
+        if (currentChild.nodeType == 3){//currentChild.TEXT_NODE) {
+            theSource += currentChild.textContent;
+        }
+
+        currentChild = currentChild.nextSibling;
+    }
+    if (shaderScript.type == "x-shader/x-fragment") {
+      shader = gl.createShader(gl.FRAGMENT_SHADER);
+    }
+    else if (shaderScript.type == "x-shader/x-vertex") {
+      shader = gl.createShader(gl.VERTEX_SHADER);
+    }
+    else {
+     // type de shader inconnu
+     return null;
+    }
+    gl.shaderSource(shader, theSource);
+
+    // Compile le programme shader
+    gl.compileShader(shader);
+
+    // Vérifie si la compilation s'est bien déroulée
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        alert("Une erreur est survenue au cours de la compilation des shaders: " + gl.getShaderInfoLog(shader));
+        return null;
+    }
+
+    return shader;
+}
+
+
+
+
+
+function loadIdentity() {
+  mvMatrix = Matrix.I(4);
+}
+
+function multMatrix(m) {
+  mvMatrix = mvMatrix.x(m);
+}
+
+function mvTranslate(v) {
+  multMatrix(Matrix.Translation($V([v[0], v[1], v[2]])).ensure4x4());
+}
+
+function setMatrixUniforms() {
+  var pUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+  gl.uniformMatrix4fv(pUniform, false, new Float32Array(perspectiveMatrix.flatten()));
+
+  var mvUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+  gl.uniformMatrix4fv(mvUniform, false, new Float32Array(mvMatrix.flatten()));
+
+  var normalMatrix = mvMatrix.inverse();
+normalMatrix = normalMatrix.transpose();
+var nUniform = gl.getUniformLocation(shaderProgram, "uNormalMatrix");
+gl.uniformMatrix4fv(nUniform, false, new Float32Array(normalMatrix.flatten()));
+}
+function mvPushMatrix(m) {
+  if (m) {
+    mvMatrixStack.push(m.dup());
+    mvMatrix = m.dup();
+  } else {
+    mvMatrixStack.push(mvMatrix.dup());
+  }
+}
+
+function mvPopMatrix() {
+  if (!mvMatrixStack.length) {
+    throw("Can't pop from an empty matrix stack.");
+  }
+
+  mvMatrix = mvMatrixStack.pop();
+  return mvMatrix;
+}
+
+function mvRotate(angle, v) {
+  var inRadians = angle * Math.PI / 180.0;
+
+  var m = Matrix.Rotation(inRadians, $V([v[0], v[1], v[2]])).ensure4x4();
+  multMatrix(m);
+}
+
+
+
+
+</script>
+<script id="shader-vs" src="vertex.js" type="x-shader/x-vertex" >
+
+</script>
+<script id="shader-fs" type="x-shader/x-fragment">
+    varying highp vec2 vTextureCoord;
+    varying highp vec3 vLighting;
+
+    uniform sampler2D uSampler;
+
+    varying highp vec3 vVertexNormal;
+    varying highp vec3 vVertexPos;
+
+    const highp vec3 ambientColor = vec3(0.0, 0.0, 0.0);
+    const highp vec3 diffuseColor = vec3(0.5, 0.0, 0.0);
+    const highp vec3 specColor = vec3(0.5, 0.0, 1.0);
+    const highp float shininess = 16.0;
+    highp vec3 ambientLight = vec3(0.1, 0.1, 0.1);
+    highp vec3 lightPos = vec3(0.0,4.0,0.0);
+
+    void main(void) {
+
+      highp vec3 normal = normalize(vVertexNormal);
+      highp vec3 lightDir = normalize(lightPos - vVertexPos);
+
+      highp float lambertian = max(dot(lightDir,normal), 0.0);
+      highp float specular = 0.0;
+
+      if(lambertian > 0.0) {
+
+          highp vec3 viewDir = normalize(-vVertexPos);
+
+          // this is blinn phong
+          highp vec3 halfDir = normalize(lightDir + viewDir);
+          highp float specAngle = max(dot(halfDir, normal), 0.0);
+          specular = pow(specAngle, shininess);
+
+          // this is phong (for comparison)
+          // if(mode == 2) {
+          //   vec3 reflectDir = reflect(-lightDir, normal);
+          //   specAngle = max(dot(reflectDir, viewDir), 0.0);
+          //   // note that the exponent is different here
+          //   specular = pow(specAngle, shininess/4.0);
+          // }
+        }
+        mediump vec4 texelColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+        highp vec3 colorLinear = ambientColor +
+                           lambertian * texelColor.rgb +
+                           specular * specColor;
+        // apply gamma correction (assume ambientColor, diffuseColor and specColor
+        // have been linearized, i.e. have no gamma correction in them)
+        // use the gamma corrected color in the fragment
+        gl_FragColor = vec4(colorLinear, 1.0);
+          // highp float directional = max(dot(vVertexNormal, directionalVector), 0.0);
+          // highp vec3 Lighting = ambientLight + (directionalLightColor * directional);
+
+          //gl_FragColor = vec4(texelColor.xyz * Lighting, texelColor.a);
+        }
+    </script>
+</head>
+<body onload="start()">
+  <canvas id="glcanvas" width="1024" height="720">
+    Votre navigateur ne semble pas supporter l'élément HTML5 <code>&lt;canvas&gt;</code>.
+  </canvas>
+</body>
+</html>
